@@ -1,0 +1,9 @@
+[package]
+name = "dsl-data-processing"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+nom = "7.1"   # For parsing expressions
+serde = { version = "1", features = ["derive"] }  # For AST serialization
+
