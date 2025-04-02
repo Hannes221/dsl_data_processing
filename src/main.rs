@@ -1,7 +1,7 @@
 mod ast;
 mod type_system;
 mod parser;
-mod interpreter;  // New module for execution
+mod interpreter; 
 
 use type_system::*;
 use parser::*;

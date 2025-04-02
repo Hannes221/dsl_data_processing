@@ -562,8 +562,6 @@ impl Parser {
             }
         }
         
-        // Create a record literal expression
-        // You'll need to add a RecordLiteralExpr struct to your AST
         Ok(Expr::RecordLiteral(RecordLiteralExpr {
             fields,
             inferred_type: None,

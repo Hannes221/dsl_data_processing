@@ -164,6 +164,7 @@ impl Interpreter {
                     _ => {
                         // For non-lambda predicates, we need to evaluate them in a different way
                         // This is a simplified implementation
+                        // TODO: Implement this
                         return Err(RuntimeError::ExpectedLambda);
                     }
                 }
@@ -211,6 +212,7 @@ impl Interpreter {
                     _ => {
                         // For non-lambda transforms, we need to evaluate them in a different way
                         // This is a simplified implementation
+                        // TODO: Implement this
                         return Err(RuntimeError::ExpectedLambda);
                     }
                 }

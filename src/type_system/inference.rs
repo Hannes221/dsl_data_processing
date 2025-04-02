@@ -3,6 +3,7 @@ use crate::ast::*;
 use crate::ast::operations::*;
 use super::types::{Type, TypeEnvironment};      
 use crate::parser::lexer::Token;
+
 /// Error type for type inference
 #[derive(Debug)]
 pub enum TypeError {
@@ -222,6 +223,7 @@ impl TypeInference {
                 } else {
                     // Infer element type from the first element
                     // This is simplified; a real implementation would check all elements
+                    // TODO: Implement this
                     let mut elem_expr = LiteralExpr {
                         value: elements[0].clone(),
                         inferred_type: None,
@@ -245,6 +247,7 @@ impl TypeInference {
             Value::Function(_) => {
                 // For function literals, we need to infer the type from the function body
                 // This is a simplified placeholder
+                // TODO: Implement this
                 let param_ty = self.env.fresh_type_var();
                 let return_ty = self.env.fresh_type_var();
                 Type::Function(vec![param_ty], Box::new(return_ty))
@@ -561,6 +564,7 @@ impl TypeInference {
         
         // The join should return a record with fields from both sides
         // This is a simplified implementation - handle field conflicts!!
+        // TODO: Implement this
         let mut fields = HashMap::new();
         
         // Add a key field with appropriate type
