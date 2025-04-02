@@ -12,4 +12,6 @@ pub enum RuntimeError {
     Other(String),
     DivisionByZero,
     ExpectedFunction(String),
+    DataSourceError(String),
+    UnknownDataset(String),
 } 

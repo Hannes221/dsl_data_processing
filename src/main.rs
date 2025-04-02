@@ -1,7 +1,8 @@
 mod ast;
 mod type_system;
 mod parser;
-mod interpreter; 
+mod interpreter;
+mod data_sources; 
 
 use type_system::*;
 use parser::*;
@@ -18,7 +19,7 @@ fn main() {
             age: Int,
             department: String
         })
-        .filter(|user| user.age > 30 && user.department == "Engineering" || user.age < 25)
+        .filter(|user| user.age > 30 && user.department == "Engineering")
         .map(|user| {
             name: user.name,
             department: user.department

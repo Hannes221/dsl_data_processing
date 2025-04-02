@@ -5,6 +5,7 @@ use crate::parser::lexer::Token;
 use super::environment::Environment;
 use super::runtime_error::RuntimeError;
 use crate::ast::expressions::Function; 
+use crate::data_sources::{DataSourceFactory, DataSourceError};
 
 pub struct Interpreter {
     pub env: Environment,
@@ -86,42 +87,17 @@ impl Interpreter {
     }
     
     fn evaluate_data_source(&mut self, ds: &DataSourceExpr) -> Result<Value, RuntimeError> {
-        let mut records = Vec::new();
+        // Create the appropriate data source
+        let data_source = match DataSourceFactory::create_data_source(&ds.source) {
+            Ok(ds) => ds,
+            Err(e) => return Err(RuntimeError::DataSourceError(format!("{:?}", e))),
+        };
         
-        // Sample data for demonstration
-        if ds.source == "users.csv" {
-            // Create some sample users
-            let mut user1 = HashMap::new();
-            user1.insert("id".to_string(), Value::Int(1));
-            user1.insert("name".to_string(), Value::String("Alice".to_string()));
-            user1.insert("age".to_string(), Value::Int(32));
-            user1.insert("department".to_string(), Value::String("Engineering".to_string()));
-            
-            let mut user2 = HashMap::new();
-            user2.insert("id".to_string(), Value::Int(2));
-            user2.insert("name".to_string(), Value::String("Bob".to_string()));
-            user2.insert("age".to_string(), Value::Int(28));
-            user2.insert("department".to_string(), Value::String("Marketing".to_string()));
-            
-            let mut user3 = HashMap::new();
-            user3.insert("id".to_string(), Value::Int(3));
-            user3.insert("name".to_string(), Value::String("Charlie".to_string()));
-            user3.insert("age".to_string(), Value::Int(45));
-            user3.insert("department".to_string(), Value::String("Engineering".to_string()));
-            
-            let mut user4 = HashMap::new();
-            user4.insert("id".to_string(), Value::Int(4));
-            user4.insert("name".to_string(), Value::String("Diana".to_string()));
-            user4.insert("age".to_string(), Value::Int(22));
-            user4.insert("department".to_string(), Value::String("Sales".to_string()));
-            
-            records.push(Value::Record(user1));
-            records.push(Value::Record(user2));
-            records.push(Value::Record(user3));
-            records.push(Value::Record(user4));
+        // Load the data
+        match data_source.load(&ds.source) {
+            Ok(records) => Ok(Value::Array(records)),
+            Err(e) => Err(RuntimeError::DataSourceError(format!("{:?}", e))),
         }
-        
-        Ok(Value::Array(records))
     }
     
     fn evaluate_filter(&mut self, filter: &FilterExpr) -> Result<Value, RuntimeError> {

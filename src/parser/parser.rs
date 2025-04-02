@@ -244,6 +244,7 @@ impl Parser {
             source: source_name,
             schema,
             inferred_type: None,
+            format: None,
         }))
     }
 

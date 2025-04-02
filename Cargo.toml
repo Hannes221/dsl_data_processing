@@ -6,4 +6,5 @@ edition = "2024"
 [dependencies]
 nom = "7.1"   # For parsing expressions
 serde = { version = "1", features = ["derive"] }  # For AST serialization
-
+serde_json = "1.0"
+csv = "1.3"

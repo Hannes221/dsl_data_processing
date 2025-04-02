@@ -9,6 +9,7 @@ pub struct DataSourceExpr {
     pub source: String,
     pub schema: HashMap<String, Type>,
     pub inferred_type: Option<Type>,
+    pub format: Option<String>,
 }
 
 /// Represents a filter operation
