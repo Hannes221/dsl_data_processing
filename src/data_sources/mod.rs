@@ -6,6 +6,7 @@ pub struct DataSourceFactory;
 pub mod csv_source;
 
 #[derive(Debug)]
+#[allow(dead_code)]
 pub enum DataSourceError {
     FileNotFound(String),
     ParseError(String),

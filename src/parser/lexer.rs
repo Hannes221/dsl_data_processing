@@ -5,7 +5,6 @@ use nom::combinator::opt;
 #[derive(Debug, Clone, PartialEq)]
 pub enum Token {
     // Keywords
-
     DataSource,
     Filter,
     Map,
@@ -104,6 +103,7 @@ pub enum Token {
 }
 
 #[derive(Debug)]
+#[allow(dead_code)]
 pub enum LexError {
     InvalidToken(String),
 }
@@ -112,10 +112,10 @@ pub fn lex(input: &str) -> Result<Vec<Token>, LexError> {
     use nom::{
         branch::alt,
         bytes::complete::{tag, take_while, take_while1},
-        character::complete::{char, digit1, multispace0, multispace1, one_of},
+        character::complete::{char, digit1, multispace0},
         combinator::{map, map_res, recognize, value},
         multi::many0,
-        sequence::{delimited, pair, preceded, terminated},
+        sequence::{delimited, pair, preceded},
         IResult,
     };
 

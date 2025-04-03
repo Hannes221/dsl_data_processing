@@ -5,6 +5,7 @@ use super::lexer::Token;
 use crate::ast::operations::*;
 
 #[derive(Debug)]
+#[allow(dead_code)]
 pub enum ParseError {
     ExpectedToken(String, Token),
     UnexpectedEOF,
@@ -244,7 +245,6 @@ impl Parser {
             source: source_name,
             schema,
             inferred_type: None,
-            format: None,
         }))
     }
 

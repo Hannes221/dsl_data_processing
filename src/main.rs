@@ -8,7 +8,6 @@ use type_system::*;
 use parser::*;
 use interpreter::*;
 use crate::data_sources::DataSource;
-use crate::ast::expressions::Value;
 
 fn main() {
     println!("Type-Inferred DSL for Data Processing");

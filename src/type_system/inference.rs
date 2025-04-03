@@ -6,6 +6,7 @@ use crate::parser::lexer::Token;
 use crate::data_sources::DataSourceFactory;
 /// Error type for type inference
 #[derive(Debug)]
+#[allow(dead_code)]
 pub enum TypeError {
     UnificationError(Type, Type),
     UndefinedVariable(String),
@@ -622,7 +623,6 @@ impl TypeInference {
 
     fn infer_aggregate(&mut self, agg: &mut AggregateExpr) -> Result<Type, TypeError> { 
         // Infer type based on the aggregate expression
-        let input_ty = self.infer(&mut agg.input)?;
         let aggregator_ty = self.infer(&mut agg.aggregator)?;
         
         // The aggregate should return the type of its output
@@ -651,7 +651,7 @@ impl TypeInference {
                 }
             },
             // If it's a type variable, constrain it to be a record with this field
-            Type::TypeVar(id) => {  
+            Type::TypeVar(_) => {  
                 // Create a new type variable for the field's type
                 let field_ty = self.env.fresh_type_var();
                 
@@ -697,7 +697,7 @@ impl TypeInference {
                 }
             },
             // If it's a type variable, constrain it to be a record with this method
-            Type::TypeVar(id) => {
+            Type::TypeVar(_) => {
                 // Create a new type variable for the method's return type
                 let ret_ty = self.env.fresh_type_var();
                 
