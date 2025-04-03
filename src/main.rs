@@ -7,6 +7,8 @@ mod data_sources;
 use type_system::*;
 use parser::*;
 use interpreter::*;
+use crate::data_sources::DataSource;
+use crate::ast::expressions::Value;
 
 fn main() {
     println!("Type-Inferred DSL for Data Processing");
@@ -47,6 +49,13 @@ fn main() {
                                 Ok(result) => {
                                     println!("Execution result:");
                                     println!("{:#?}", result);
+                                    // Write the result to a CSV file
+                                    let output_path = "output.csv";
+                                    // Then use that variable in the function call
+                                    match data_sources::csv_source::CsvDataSource.write(output_path, &[result]) {
+                                        Ok(_) => println!("Result written to {}", output_path),
+                                        Err(e) => println!("Error writing result: {:#?}", e),
+                                    }
                                 },
                                 Err(err) => println!("Execution error: {:#?}", err),
                             }

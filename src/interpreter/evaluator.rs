@@ -5,7 +5,7 @@ use crate::parser::lexer::Token;
 use super::environment::Environment;
 use super::runtime_error::RuntimeError;
 use crate::ast::expressions::Function; 
-use crate::data_sources::{DataSourceFactory, DataSourceError};
+use crate::data_sources::DataSourceFactory;
 
 pub struct Interpreter {
     pub env: Environment,

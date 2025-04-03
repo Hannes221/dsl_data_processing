@@ -10,11 +10,13 @@ pub enum DataSourceError {
     FileNotFound(String),
     ParseError(String),
     UnsupportedFormat(String),
+    WriteError(String),
 }
 
 pub trait DataSource {
     fn load(&self, path: &str) -> Result<Vec<Value>, DataSourceError>;
     fn get_schema(&self, path: &str) -> Result<HashMap<String, String>, DataSourceError>;
+    fn write(&self, path: &str, records: &[Value]) -> Result<(), DataSourceError>;
 }
 
 impl DataSourceFactory {

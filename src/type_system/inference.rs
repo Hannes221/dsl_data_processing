@@ -3,7 +3,7 @@ use crate::ast::*;
 use crate::ast::operations::*;
 use super::types::{Type, TypeEnvironment};      
 use crate::parser::lexer::Token;
-
+use crate::data_sources::DataSourceFactory;
 /// Error type for type inference
 #[derive(Debug)]
 pub enum TypeError {
@@ -330,7 +330,47 @@ impl TypeInference {
     }
 
     fn infer_data_source(&mut self, ds: &mut DataSourceExpr) -> Result<Type, TypeError> {
-        // Infer type based on the data source
+        if ds.schema.is_empty() {
+            if let Ok(data_source) = DataSourceFactory::create_data_source(&ds.source) {
+                if let Ok(schema_strings) = data_source.get_schema(&ds.source) {
+                    // Convert string types to Type enum
+                    for (field, type_str) in schema_strings {
+                        let field_type = match type_str.as_str() {
+                            "Int" => Type::Int,
+                            "Float" => Type::Float,
+                            "String" => Type::String,
+                            "Boolean" => Type::Boolean,
+                            "Array" => {
+                                // For arrays without element type info, use a type variable
+                                let elem_ty = self.env.fresh_type_var();
+                                Type::Array(Box::new(elem_ty))
+                            },
+                            // Handle array types with element info (e.g., "Array<Int>")
+                            s if s.starts_with("Array<") && s.ends_with(">") => {
+                                let elem_type_str = &s[6..s.len()-1];
+                                let elem_type = match elem_type_str {
+                                    "Int" => Type::Int,
+                                    "Float" => Type::Float,
+                                    "String" => Type::String,
+                                    "Boolean" => Type::Boolean,
+                                    _ => Type::String, // Default for unknown element types
+                                };
+                                Type::Array(Box::new(elem_type))
+                            },
+                            "Record" => {
+                                // For generic records, use an empty record type
+                                Type::Record(HashMap::new())
+                            },
+                            // For unknown types, default to String
+                            _ => Type::String,
+                        };
+                        ds.schema.insert(field, field_type);
+                    }
+                }
+            }
+        }
+        
+        // Create a record type from the schema
         let ty = Type::Record(ds.schema.clone());
         ds.inferred_type = Some(ty.clone());
         Ok(ty)

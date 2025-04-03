@@ -3,7 +3,7 @@ use std::fs::File;
 use csv::ReaderBuilder;
 use crate::ast::expressions::Value;
 use super::{DataSource, DataSourceError};
-
+use csv::Writer;
 pub struct CsvDataSource;
 
 impl DataSource for CsvDataSource {
@@ -118,7 +118,88 @@ impl DataSource for CsvDataSource {
                 }
             }
         }
-        
         Ok(schema)
     }
+
+    fn write(&self, path: &str, records: &[Value]) -> Result<(), DataSourceError> {
+        let file = File::create(path).map_err(|e| 
+            DataSourceError::FileNotFound(format!("Could not create {}: {}", path, e))
+        )?;
+        
+        let mut writer = Writer::from_writer(file);
+
+        // Handle the case where we're given a single Value::Array
+        let actual_records = if records.len() == 1 {
+            match &records[0] {
+                Value::Array(array_records) => array_records,
+                _ => records,
+            }
+        } else {
+            records
+        };
+
+        // Extract headers from the first record
+        let headers: Vec<String> = if let Some(first) = actual_records.first() {
+            if let Value::Record(fields) = first {
+                fields.keys().cloned().collect()
+            } else {
+                vec![]
+            }
+        } else {
+            vec![]
+        };
+
+        // Write header if we have headers
+        if !headers.is_empty() {
+            writer.write_record(&headers).map_err(|e|
+                DataSourceError::WriteError(format!("Error writing headers: {}", e))
+            )?;
+        }
+
+        for record in actual_records {
+            // Convert Value to a CSV-friendly format
+            match record {
+                Value::Record(fields) => {
+                    // Use the same header order for all records
+                    let values: Vec<String> = headers.iter()
+                        .map(|name| {
+                            match fields.get(name) {
+                                Some(Value::String(s)) => s.clone(),
+                                Some(Value::Int(i)) => i.to_string(),
+                                Some(Value::Float(f)) => f.to_string(),
+                                Some(Value::Boolean(b)) => b.to_string(),
+                                Some(v) => format!("{:?}", v),
+                                None => String::new(), // Empty string for missing fields
+                            }
+                        })
+                        .collect();
+                    
+                    writer.write_record(&values).map_err(|e| 
+                        DataSourceError::WriteError(format!("Error writing record: {}", e))
+                    )?;
+                },
+                _ => {
+                    // For non-record values, write as a single field without type information
+                    let value_str = match record {
+                        Value::String(s) => s.clone(),
+                        Value::Int(i) => i.to_string(),
+                        Value::Float(f) => f.to_string(),
+                        Value::Boolean(b) => b.to_string(),
+                        _ => format!("{:?}", record)
+                    };
+                    
+                    writer.write_record(&[value_str]).map_err(|e| 
+                        DataSourceError::WriteError(format!("Error writing record: {}", e))
+                    )?;
+                }
+            }
+        }
+        
+        writer.flush().map_err(|e| 
+            DataSourceError::WriteError(format!("Error flushing writer: {}", e))
+        )?;
+        
+        Ok(())
+    }
+
 }
