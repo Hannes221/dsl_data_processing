@@ -3,7 +3,7 @@ use crate::ast::expressions::Value;
 
 #[derive(Clone)]
 pub struct Environment {
-    pub variables: HashMap<String, Value>,
+    variables: HashMap<String, Value>,
 }
 
 impl Environment {
@@ -19,5 +19,9 @@ impl Environment {
     
     pub fn get_variable(&self, name: &str) -> Option<&Value> {
         self.variables.get(name)
+    }
+
+    pub fn get_variables(&self) -> &HashMap<String, Value> {
+        &self.variables
     }
 } 

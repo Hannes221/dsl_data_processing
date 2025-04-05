@@ -80,7 +80,7 @@ impl Interpreter {
         let function = Function {
             parameters: lambda.parameters.clone(),
             body: lambda.body.clone(),
-            closure: self.env.variables.clone(),
+            closure: self.env.get_variables().clone(),
         };
         
         Ok(Value::Function(Box::new(function)))
@@ -744,6 +744,7 @@ impl Interpreter {
                         }
                     },
                     _ => Err(RuntimeError::UndefinedField(method.method.clone())),
+                    // TODO: Add more methods
                 }
             },
             Value::String(s) => {

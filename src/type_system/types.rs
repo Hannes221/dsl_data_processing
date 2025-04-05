@@ -3,6 +3,7 @@ use std::fmt;
 
 /// Represents a type in our DSL
 #[derive(Debug, Clone, PartialEq)]
+#[allow(dead_code)]
 pub enum Type {
     // Primitive types
     Int,

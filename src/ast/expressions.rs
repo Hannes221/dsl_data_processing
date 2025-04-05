@@ -4,6 +4,7 @@ use super::operations::*;
 
 /// The core Expression enum that represents all possible expressions in our DSL
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub enum Expr {
     // Data sources
     DataSource(DataSourceExpr),

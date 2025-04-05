@@ -3,6 +3,7 @@ use nom::sequence::tuple;
 use nom::combinator::opt;
 
 #[derive(Debug, Clone, PartialEq)]
+#[allow(dead_code)]
 pub enum Token {
     // Keywords
     DataSource,
@@ -56,6 +57,7 @@ pub enum Token {
     EOF,
 }
 
+  // Display the token for debugging
   impl fmt::Display for Token {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -108,6 +110,7 @@ pub enum LexError {
     InvalidToken(String),
 }
 
+// Lex the input string and return a vector of tokens
 pub fn lex(input: &str) -> Result<Vec<Token>, LexError> {
     use nom::{
         branch::alt,
@@ -119,7 +122,6 @@ pub fn lex(input: &str) -> Result<Vec<Token>, LexError> {
         IResult,
     };
 
-    // Helper functions for lexing
     fn parse_keyword(input: &str) -> IResult<&str, Token> {
         alt((
             value(Token::DataSource, tag("data_source")),
