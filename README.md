@@ -157,3 +157,19 @@ names: group.map(|u| u.name)
 4. **Phase 4**: Create the interpreter
 5. **Phase 5**: Add standard library functions
 6. **Phase 6**: Optimize and refine
+
+## Concepts covered
+
+- Type Systems (Static Typing, Polymorphism, Compile-time checks)
+- Type inference (Hindley-Milner Algorithm)
+- Abstract Syntax Tree
+- Object-Oriented Concepts (Classes, Traits, Inheritance)
+- Functional Concepts (Pure functions, Higher-order functions, Lambdas/Anonymous Functions)
+- Memory management (Ownership, Borrowing)
+- Lexical Analysis (Tokenization)
+- Semantic Analysis (Type checking)
+- Parsing (Parsing Expressions, Parsing Statements, Parsing Declarations)
+- Interpreter/Evaluator
+- Introspection
+- Data Operations (Filtering, Mapping, Grouping, Joining, Aggregating)
+- Data Sources (CSV, more to be added...)
