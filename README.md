@@ -173,3 +173,14 @@ names: group.map(|u| u.name)
 - Introspection
 - Data Operations (Filtering, Mapping, Grouping, Joining, Aggregating)
 - Data Sources (CSV, more to be added...)
+
+## TODO:
+
+- Work on TODOS in the codebase
+- Lazy parsing
+- Error handling
+- Performance optimizations/Batch processing
+- Streaming (Use in production ML pipelines)
+- Documentation
+- Tests
+- Benchmarks
