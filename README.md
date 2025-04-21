@@ -174,6 +174,120 @@ names: group.map(|u| u.name)
 - Data Operations (Filtering, Mapping, Grouping, Joining, Aggregating)
 - Data Sources (CSV, more to be added...)
 
+## Future Enhancements
+
+### Performance Optimizations
+
+#### Parallel Processing with Rayon
+
+The interpreter could be enhanced with Rayon to parallelize data operations:
+
+- Parallel execution of `filter`, `map`, and other transformations
+- Work-stealing scheduler for efficient CPU utilization
+- Simple API transition (changing `.iter()` to `.par_iter()`)
+- Significant performance improvements for large datasets
+
+#### Columnar Data Processing with Polars/Arrow
+
+Integration with Polars or Apache Arrow would provide:
+
+- High-performance columnar data processing
+- Memory-efficient data representation
+- Vectorized operations for faster computation
+- Advanced analytical capabilities
+- Interoperability with other data tools and formats
+
+### Streaming Data Processing
+
+#### Kafka Integration
+
+The DSL could be extended to support streaming data via Kafka:
+
+- Real-time data processing pipelines
+- Continuous queries on streaming data
+- Windowed operations (sliding, tumbling windows)
+- Exactly-once processing semantics
+- Integration with existing Kafka ecosystems
+
+Implementation approach:
+
+```rust
+// Example of potential Kafka source syntax
+let stream = kafka_source("topic_name", {
+    server: "localhost:9092",
+    group_id: "my_consumer_group",
+    schema: {
+        timestamp: Int,
+        user_id: String,
+        action: String
+    }
+})
+.filter(|event| event.action == "purchase")
+.window(sliding(minutes(5), seconds(30)))
+.aggregate(|window| {
+    count: window.count(),
+    total: window.sum(|e| e.amount)
+});
+```
+
+### Custom Transformers
+
+The DSL could be extended with a plugin system for custom transformers:
+
+- User-defined operations beyond the standard library
+- Domain-specific transformations
+- Integration with external libraries and tools
+- Reusable transformation components
+
+Implementation approach:
+
+```rust
+// Registering a custom transformer
+register_transformer("sentiment_analysis", |text: String| -> Record {
+    // Integration with external NLP library
+    let sentiment = external_nlp::analyze_sentiment(&text);
+    {
+        score: sentiment.score,
+        magnitude: sentiment.magnitude,
+        classification: sentiment.classification
+    }
+});
+
+// Using the custom transformer in a pipeline
+let results = data_source("customer_reviews.csv")
+    .map(|review| {
+        review_text: review.text,
+        sentiment: sentiment_analysis(review.text)
+    })
+    .filter(|r| r.sentiment.score > 0.7)
+    .group_by(|r| r.sentiment.classification);
+```
+
+## Distribution Options
+
+The DSL can be made available to users through multiple channels:
+
+### Rust Crate
+
+- Publish to crates.io for Rust developers
+- Provide both library and binary interfaces
+
+### Command-Line Interface
+
+- Standalone executable for processing DSL scripts
+- Support for file input/output and pipeline configuration
+
+### Python Package
+
+- PyO3 bindings to make the DSL accessible to Python users
+- Integration with pandas and the Python data science ecosystem
+- Maintain Rust performance while providing a Pythonic API
+
+### Docker Container
+
+- Consistent environment across platforms
+- Easy integration with data pipelines and CI/CD workflows
+
 ## TODO:
 
 - Work on TODOS in the codebase
