@@ -149,15 +149,6 @@ count: group.len(),
 names: group.map(|u| u.name)
 });
 
-## Development Phases
-
-1. **Phase 1**: Define the AST and type system
-2. **Phase 2**: Implement the lexer and parser
-3. **Phase 3**: Build the type inference engine
-4. **Phase 4**: Create the interpreter
-5. **Phase 5**: Add standard library functions
-6. **Phase 6**: Optimize and refine
-
 ## Concepts covered
 
 - Type Systems (Static Typing, Polymorphism, Compile-time checks)
