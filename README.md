@@ -289,3 +289,4 @@ The DSL can be made available to users through multiple channels:
 - Documentation
 - Tests
 - Benchmarks
+- Open Sourcing
