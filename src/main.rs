@@ -26,6 +26,8 @@ fn main() {
             department: user.department
         })
     "#;
+
+    println!("Input: {}", input);
     
     match lex(input) {
         Ok(tokens) => {

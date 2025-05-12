@@ -14,7 +14,7 @@ pub enum Type {
     // Complex types
     Array(Box<Type>),
     Record(HashMap<String, Type>),
-    Function(Vec<Type>, Box<Type>), // Input types and return type
+    Function(Vec<Type>, Box<Type>), 
     
     // Type variables for inference
     TypeVar(usize),
