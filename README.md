@@ -13,19 +13,29 @@ The core of our DSL is defined by its Abstract Syntax Tree, which represents the
 ```rust
 // Base expression type
 pub enum Expr {
-// Data sources
-DataSource(DataSourceExpr),
-// Operations
-Filter(FilterExpr),
-Map(MapExpr),
-GroupBy(GroupByExpr),
-Join(JoinExpr),
-Aggregate(AggregateExpr),
-// Values
-Literal(LiteralExpr),
-Variable(VariableExpr),
-FunctionCall(FunctionCallExpr),
-Lambda(LambdaExpr),
+    // Data sources
+    DataSource(DataSourceExpr),
+
+    // Operations
+    Filter(FilterExpr),
+    Map(MapExpr),
+    GroupBy(GroupByExpr),
+    Join(JoinExpr),
+    Aggregate(AggregateExpr),
+    BinaryOp(BinaryOpExpr),
+
+    // Values
+    Literal(LiteralExpr),
+    RecordLiteral(RecordLiteralExpr),
+    Variable(VariableExpr),
+
+    // Computation
+    FunctionCall(FunctionCallExpr),
+    Lambda(LambdaExpr),
+
+    // Object-oriented features
+    FieldAccess(FieldAccessExpr),
+    MethodCall(MethodCallExpr),
 }
 // Each expression type has its own struct with relevant fields
 pub struct FilterExpr {
@@ -103,9 +113,8 @@ This implementation will demonstrate:
 
 ### Type Systems
 
-- Static typing with compile-time checks
+- Static typing with interpretation-time checks
 - Type inference using Hindley-Milner algorithm
-- Polymorphic types for generic operations
 
 ### Object-Oriented Concepts
 

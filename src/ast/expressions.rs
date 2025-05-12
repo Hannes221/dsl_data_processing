@@ -15,18 +15,20 @@ pub enum Expr {
     GroupBy(Box<GroupByExpr>),
     Join(Box<JoinExpr>),
     Aggregate(Box<AggregateExpr>),
+    BinaryOp(Box<BinaryOpExpr>),
     
     // Values
     Literal(LiteralExpr),
     RecordLiteral(RecordLiteralExpr),
     Variable(VariableExpr),
+    
+    // Computation
     FunctionCall(Box<FunctionCallExpr>),
     Lambda(Box<LambdaExpr>),
     
     // Object-oriented features
     FieldAccess(Box<FieldAccessExpr>),
     MethodCall(Box<MethodCallExpr>),
-    BinaryOp(Box<BinaryOpExpr>),
 }
 
 /// Represents a literal value

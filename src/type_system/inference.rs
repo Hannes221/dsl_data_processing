@@ -121,23 +121,6 @@ impl TypeInference {
                 self.unify(&ret1, &ret2)
             },
             
-            // Generic types unify if they have the same name and their type arguments unify
-            (Type::Generic(name1, args1), Type::Generic(name2, args2)) => {
-                if name1 != name2 || args1.len() != args2.len() {
-                    return Err(TypeError::UnificationError(
-                        Type::Generic(name1, args1), 
-                        Type::Generic(name2, args2)
-                    ));
-                }
-                
-                // Unify type arguments
-                for (a1, a2) in args1.iter().zip(args2.iter()) {
-                    self.unify(a1, a2)?;
-                }
-                
-                Ok(())
-            },
-            
             // Other combinations don't unify
             (t1, t2) => Err(TypeError::UnificationError(t1, t2)),
         }
@@ -169,12 +152,6 @@ impl TypeInference {
                 let new_ret = Box::new(self.apply_substitutions(*ret_ty));
                 Type::Function(new_params, new_ret)
             },
-            Type::Generic(name, args) => {
-                let new_args = args.into_iter()
-                    .map(|a| self.apply_substitutions(a))
-                    .collect();
-                Type::Generic(name, new_args)
-            },
             // Primitive types remain unchanged
             ty => ty,
         }
@@ -200,9 +177,6 @@ impl TypeInference {
             Type::Function(params, ret_ty) => {
                 params.iter().any(|p| self.occurs_check(id, p)) || 
                 self.occurs_check(id, ret_ty)
-            },
-            Type::Generic(_, args) => {
-                args.iter().any(|a| self.occurs_check(id, a))
             },
             // Primitive types don't contain type variables
             _ => false,
@@ -357,10 +331,6 @@ impl TypeInference {
                                     _ => Type::String, // Default for unknown element types
                                 };
                                 Type::Array(Box::new(elem_type))
-                            },
-                            "Record" => {
-                                // For generic records, use an empty record type
-                                Type::Record(HashMap::new())
                             },
                             // For unknown types, default to String
                             _ => Type::String,

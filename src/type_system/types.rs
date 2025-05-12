@@ -18,9 +18,6 @@ pub enum Type {
     
     // Type variables for inference
     TypeVar(usize),
-    
-    // Polymorphic types
-    Generic(String, Vec<Type>),
 }
 
 impl fmt::Display for Type {
@@ -52,16 +49,6 @@ impl fmt::Display for Type {
                 write!(f, ") -> {}", return_type)
             },
             Type::TypeVar(id) => write!(f, "T{}", id),
-            Type::Generic(name, type_args) => {
-                write!(f, "{}<", name)?;
-                for (i, arg) in type_args.iter().enumerate() {
-                    if i > 0 {
-                        write!(f, ", ")?;
-                    }
-                    write!(f, "{}", arg)?;
-                }
-                write!(f, ">")
-            },
         }
     }
 }
