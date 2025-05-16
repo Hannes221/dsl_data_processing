@@ -6,6 +6,7 @@ use super::environment::Environment;
 use super::runtime_error::RuntimeError;
 use crate::ast::expressions::Function; 
 use crate::data_sources::DataSourceFactory;
+use rayon::prelude::*;
 
 pub struct Interpreter {
     pub env: Environment,
@@ -106,45 +107,41 @@ impl Interpreter {
         
         // Input should be an array
         if let Value::Array(elements) = input_value {
-            let mut result = Vec::new();
+            // Clone the environment for parallel processing
+            let env = self.env.clone();
             
-            // Apply the predicate to each element
-            for element in elements {
-                // Create a new scope for the lambda parameter
-                let saved_env = self.env.clone();
-                
-                // Bind the current element to the parameter name
-                match &*filter.predicate {
-                    Expr::Lambda(lambda) => {
-                        if lambda.parameters.len() != 1 {
-                            return Err(RuntimeError::WrongNumberOfArguments(
-                                lambda.parameters.len(),
-                                1,
-                            ));
-                        }
-                        
-                        let param_name = &lambda.parameters[0];
-                        self.env.set_variable(param_name.clone(), element.clone());
-                        
-                        // Evaluate the predicate
-                        let predicate_result = self.evaluate(&lambda.body)?;
-                        
-                        // Check if the predicate is true
-                        if let Value::Boolean(true) = predicate_result {
-                            result.push(element);
-                        }
-                        
-                        // Restore the environment
-                        self.env = saved_env;
-                    },
-                    _ => {
-                        // For non-lambda predicates, we need to evaluate them in a different way
-                        // This is a simplified implementation
-                        // TODO: Implement this
-                        return Err(RuntimeError::ExpectedLambda);
+            // Create a parallel iterator over the elements
+            let result: Vec<Value> = elements.into_par_iter()
+                .filter_map(|element| {
+                    // Create a new scope for the lambda parameter
+                    let mut local_env = env.clone();
+                    
+                    // Bind the current element to the parameter name
+                    match &*filter.predicate {
+                        Expr::Lambda(lambda) => {
+                            if lambda.parameters.len() != 1 {
+                                return None;
+                            }
+                            
+                            let param_name = &lambda.parameters[0];
+                            local_env.set_variable(param_name.clone(), element.clone());
+                            
+                            // Create a temporary interpreter with the local environment
+                            let mut local_interpreter = Interpreter { env: local_env };
+                            
+                            // Evaluate the predicate
+                            let predicate_result = local_interpreter.evaluate(&lambda.body).ok()?;
+                            
+                            // Return the element if the predicate is true
+                            match predicate_result {
+                                Value::Boolean(true) => Some(element),
+                                _ => None,
+                            }
+                        },
+                        _ => None,
                     }
-                }
-            }
+                })
+                .collect();
             
             Ok(Value::Array(result))
         } else {
@@ -158,41 +155,35 @@ impl Interpreter {
         
         // Input should be an array
         if let Value::Array(elements) = input_value {
-            let mut result = Vec::new();
+            // Clone the environment for parallel processing
+            let env = self.env.clone();
             
-            // Apply the transform to each element
-            for element in elements {
-                // Create a new scope for the lambda parameter
-                let saved_env = self.env.clone();
-                
-                // Bind the current element to the parameter name
-                match &*map.transform {
-                    Expr::Lambda(lambda) => {
-                        if lambda.parameters.len() != 1 {
-                            return Err(RuntimeError::WrongNumberOfArguments(
-                                lambda.parameters.len(),
-                                1,
-                            ));
-                        }
-                        
-                        let param_name = &lambda.parameters[0];
-                        self.env.set_variable(param_name.clone(), element.clone());
-                        
-                        // Evaluate the transform
-                        let transformed = self.evaluate(&lambda.body)?;
-                        result.push(transformed);
-                        
-                        // Restore the environment
-                        self.env = saved_env;
-                    },
-                    _ => {
-                        // For non-lambda transforms, we need to evaluate them in a different way
-                        // This is a simplified implementation
-                        // TODO: Implement this
-                        return Err(RuntimeError::ExpectedLambda);
+            // Create a parallel iterator over the elements
+            let result: Vec<Value> = elements.into_par_iter()
+                .map(|element| {
+                    // Create a new scope for the lambda parameter
+                    let mut local_env = env.clone();
+                    
+                    // Bind the current element to the parameter name
+                    match &*map.transform {
+                        Expr::Lambda(lambda) => {
+                            if lambda.parameters.len() != 1 {
+                                return Value::Null;
+                            }
+                            
+                            let param_name = &lambda.parameters[0];
+                            local_env.set_variable(param_name.clone(), element.clone());
+                            
+                            // Create a temporary interpreter with the local environment
+                            let mut local_interpreter = Interpreter { env: local_env };
+                            
+                            // Evaluate the transform
+                            local_interpreter.evaluate(&lambda.body).unwrap_or(Value::Null)
+                        },
+                        _ => Value::Null,
                     }
-                }
-            }
+                })
+                .collect();
             
             Ok(Value::Array(result))
         } else {
@@ -436,59 +427,73 @@ impl Interpreter {
         
         // Input should be an array
         if let Value::Array(elements) = input_value {
-            let mut groups: HashMap<String, Vec<Value>> = HashMap::new();
+            // Clone the environment for parallel processing
+            let env = self.env.clone();
             
-            // Group elements by key
-            for element in elements {
-                // Create a new scope for the lambda parameter
-                let saved_env = self.env.clone();
-                
-                // Bind the current element to the parameter name
-                match &*group_by.key_selector {
-                    Expr::Lambda(lambda) => {
-                        if lambda.parameters.len() != 1 {
-                            return Err(RuntimeError::WrongNumberOfArguments(
-                                lambda.parameters.len(),
-                                1,
-                            ));
-                        }
-                        
-                        let param_name = &lambda.parameters[0];
-                        self.env.set_variable(param_name.clone(), element.clone());
-                        
-                        // Evaluate the key selector
-                        let key_result = self.evaluate(&lambda.body)?;
-                        
-                        // Convert the key to a string for grouping
-                        let key_string = match &key_result {
-                            Value::String(s) => s.clone(),
-                            Value::Int(i) => i.to_string(),
-                            Value::Float(f) => f.to_string(),
-                            Value::Boolean(b) => b.to_string(),
-                            _ => format!("{:?}", key_result),
-                        };
-                        
-                        // Add the element to the appropriate group
-                        groups.entry(key_string).or_insert_with(Vec::new).push(element);
-                        
-                        // Restore the environment
-                        self.env = saved_env;
-                    },
-                    _ => {
-                        // For non-lambda key selectors
-                        return Err(RuntimeError::ExpectedLambda);
+            // Create a parallel iterator over the elements
+            let groups: HashMap<String, Vec<Value>> = elements.into_par_iter()
+                .map(|element| {
+                    // Create a new scope for the lambda parameter
+                    let mut local_env = env.clone();
+                    
+                    // Bind the current element to the parameter name
+                    match &*group_by.key_selector {
+                        Expr::Lambda(lambda) => {
+                            if lambda.parameters.len() != 1 {
+                                return (String::new(), Vec::new());
+                            }
+                            
+                            let param_name = &lambda.parameters[0];
+                            local_env.set_variable(param_name.clone(), element.clone());
+                            
+                            // Create a temporary interpreter with the local environment
+                            let mut local_interpreter = Interpreter { env: local_env };
+                            
+                            // Evaluate the key selector
+                            let key_result = local_interpreter.evaluate(&lambda.body).unwrap_or(Value::Null);
+                            
+                            // Convert the key to a string for grouping
+                            let key_string = match &key_result {
+                                Value::String(s) => s.clone(),
+                                Value::Int(i) => i.to_string(),
+                                Value::Float(f) => f.to_string(),
+                                Value::Boolean(b) => b.to_string(),
+                                _ => format!("{:?}", key_result),
+                            };
+                            
+                            (key_string, vec![element])
+                        },
+                        _ => (String::new(), Vec::new()),
                     }
-                }
-            }
+                })
+                .fold(
+                    || HashMap::new(),
+                    |mut acc, (key, mut values)| {
+                        if !key.is_empty() {
+                            acc.entry(key).or_insert_with(Vec::new).append(&mut values);
+                        }
+                        acc
+                    }
+                )
+                .reduce(
+                    || HashMap::new(),
+                    |mut acc, map| {
+                        for (key, mut values) in map {
+                            acc.entry(key).or_insert_with(Vec::new).append(&mut values);
+                        }
+                        acc
+                    }
+                );
             
             // Convert the groups to an array of records
-            let mut result = Vec::new();
-            for (key, group) in groups {
-                let mut record = HashMap::new();
-                record.insert("key".to_string(), Value::String(key));
-                record.insert("data".to_string(), Value::Array(group));
-                result.push(Value::Record(record));
-            }
+            let result: Vec<Value> = groups.into_par_iter()
+                .map(|(key, group)| {
+                    let mut record = HashMap::new();
+                    record.insert("key".to_string(), Value::String(key));
+                    record.insert("data".to_string(), Value::Array(group));
+                    Value::Record(record)
+                })
+                .collect();
             
             Ok(Value::Array(result))
         } else {
@@ -504,130 +509,140 @@ impl Interpreter {
         // Both inputs should be arrays
         match (&left_value, &right_value) {
             (Value::Array(left_elements), Value::Array(right_elements)) => {
-                let mut result = Vec::new();
+                // Clone the environment for parallel processing
+                let env = self.env.clone();
                 
-                // Extract keys from left elements
-                let mut left_keys: HashMap<String, Vec<Value>> = HashMap::new();
-                for left_element in left_elements.iter() {
-                    // Create a new scope for the lambda parameter
-                    let saved_env = self.env.clone();
-                    
-                    // Bind the current element to the parameter name
-                    match &*join.left_key {
-                        Expr::Lambda(lambda) => {
-                            if lambda.parameters.len() != 1 {
-                                return Err(RuntimeError::WrongNumberOfArguments(
-                                    lambda.parameters.len(),
-                                    1,
-                                ));
-                            }
-                            
-                            let param_name = &lambda.parameters[0];
-                            self.env.set_variable(param_name.clone(), left_element.clone());
-                            
-                            // Evaluate the key selector
-                            let key_result = self.evaluate(&lambda.body)?;
-                            
-                            // Convert the key to a string for joining
-                            let key_string = match &key_result {
-                                Value::String(s) => s.clone(),
-                                Value::Int(i) => i.to_string(),
-                                Value::Float(f) => f.to_string(),
-                                Value::Boolean(b) => b.to_string(),
-                                _ => format!("{:?}", key_result),
-                            };
-                            
-                            // Add the element to the appropriate key group
-                            left_keys.entry(key_string).or_insert_with(Vec::new).push(left_element.clone());
-                            
-                            // Restore the environment
-                            self.env = saved_env;
-                        },
-                        _ => {
-                            return Err(RuntimeError::ExpectedLambda);
-                        }
-                    }
-                }
-                
-                // Join with right elements
-                for right_element in right_elements.iter() {
-                    // Create a new scope for the lambda parameter
-                    let saved_env = self.env.clone();
-                    
-                    // Bind the current element to the parameter name
-                    match &*join.right_key {
-                        Expr::Lambda(lambda) => {
-                            if lambda.parameters.len() != 1 {
-                                return Err(RuntimeError::WrongNumberOfArguments(
-                                    lambda.parameters.len(),
-                                    1,
-                                ));
-                            }
-                            
-                            let param_name = &lambda.parameters[0];
-                            self.env.set_variable(param_name.clone(), right_element.clone());
-                            
-                            // Evaluate the key selector
-                            let key_result = self.evaluate(&lambda.body)?;
-                            
-                            // Convert the key to a string for joining
-                            let key_string = match &key_result {
-                                Value::String(s) => s.clone(),
-                                Value::Int(i) => i.to_string(),
-                                Value::Float(f) => f.to_string(),
-                                Value::Boolean(b) => b.to_string(),
-                                _ => format!("{:?}", key_result),
-                            };
-                            
-                            // Find matching left elements
-                            if let Some(matching_left) = left_keys.get(&key_string) {
-                                for left_element in matching_left {
-                                    // Create a new scope for the result selector
-                                    let saved_env_inner = self.env.clone();
-                                    
-                                    // Apply the result selector to create the joined record
-                                    match &*join.result_selector {
-                                        Expr::Lambda(lambda) => {
-                                            if lambda.parameters.len() != 2 {
-                                                return Err(RuntimeError::WrongNumberOfArguments(
-                                                    lambda.parameters.len(),
-                                                    2,
-                                                ));
-                                            }
-                                            
-                                            // Bind the left and right elements to the parameter names
-                                            let left_param = &lambda.parameters[0];
-                                            let right_param = &lambda.parameters[1];
-                                            self.env.set_variable(left_param.clone(), left_element.clone());
-                                            self.env.set_variable(right_param.clone(), right_element.clone());
-                                            
-                                            // Evaluate the result selector
-                                            let joined_result = self.evaluate(&lambda.body)?;
-                                            result.push(joined_result);
-                                            
-                                            // Restore the environment
-                                            self.env = saved_env_inner;
-                                        },
-                                        _ => {
-                                            // Default join behavior if no lambda is provided
-                                            let mut record = HashMap::new();
-                                            record.insert("key".to_string(), Value::String(key_string.clone()));
-                                            record.insert("left".to_string(), left_element.clone());
-                                            record.insert("right".to_string(), right_element.clone());
-                                            result.push(Value::Record(record));
-                                        }
-                                    }
+                // Extract keys from left elements in parallel
+                let left_keys: HashMap<String, Vec<Value>> = left_elements.par_iter()
+                    .map(|left_element| {
+                        // Create a new scope for the lambda parameter
+                        let mut local_env = env.clone();
+                        
+                        // Bind the current element to the parameter name
+                        match &*join.left_key {
+                            Expr::Lambda(lambda) => {
+                                if lambda.parameters.len() != 1 {
+                                    return (String::new(), Vec::new());
                                 }
-                            }
-                            
-                            // Restore the environment
-                            self.env = saved_env;
-                        },
-                        _ => {
-                            return Err(RuntimeError::ExpectedLambda);
+                                
+                                let param_name = &lambda.parameters[0];
+                                local_env.set_variable(param_name.clone(), left_element.clone());
+                                
+                                // Create a temporary interpreter with the local environment
+                                let mut local_interpreter = Interpreter { env: local_env };
+                                
+                                // Evaluate the key selector
+                                let key_result = local_interpreter.evaluate(&lambda.body).unwrap_or(Value::Null);
+                                
+                                // Convert the key to a string for joining
+                                let key_string = match &key_result {
+                                    Value::String(s) => s.clone(),
+                                    Value::Int(i) => i.to_string(),
+                                    Value::Float(f) => f.to_string(),
+                                    Value::Boolean(b) => b.to_string(),
+                                    _ => format!("{:?}", key_result),
+                                };
+                                
+                                (key_string, vec![left_element.clone()])
+                            },
+                            _ => (String::new(), Vec::new()),
                         }
-                    }
-                }
+                    })
+                    .fold(
+                        || HashMap::new(),
+                        |mut acc, (key, mut values)| {
+                            if !key.is_empty() {
+                                acc.entry(key).or_insert_with(Vec::new).append(&mut values);
+                            }
+                            acc
+                        }
+                    )
+                    .reduce(
+                        || HashMap::new(),
+                        |mut acc, map| {
+                            for (key, mut values) in map {
+                                acc.entry(key).or_insert_with(Vec::new).append(&mut values);
+                            }
+                            acc
+                        }
+                    );
+                
+                // Join with right elements in parallel
+                let result: Vec<Value> = right_elements.par_iter()
+                    .flat_map(|right_element| {
+                        // Create a new scope for the lambda parameter
+                        let mut local_env = env.clone();
+                        
+                        // Bind the current element to the parameter name
+                        match &*join.right_key {
+                            Expr::Lambda(lambda) => {
+                                if lambda.parameters.len() != 1 {
+                                    return Vec::new();
+                                }
+                                
+                                let param_name = &lambda.parameters[0];
+                                local_env.set_variable(param_name.clone(), right_element.clone());
+                                
+                                // Create a temporary interpreter with the local environment
+                                let mut local_interpreter = Interpreter { env: local_env };
+                                
+                                // Evaluate the key selector
+                                let key_result = local_interpreter.evaluate(&lambda.body).unwrap_or(Value::Null);
+                                
+                                // Convert the key to a string for joining
+                                let key_string = match &key_result {
+                                    Value::String(s) => s.clone(),
+                                    Value::Int(i) => i.to_string(),
+                                    Value::Float(f) => f.to_string(),
+                                    Value::Boolean(b) => b.to_string(),
+                                    _ => format!("{:?}", key_result),
+                                };
+                                
+                                // Find matching left elements
+                                if let Some(matching_left) = left_keys.get(&key_string) {
+                                    matching_left.iter()
+                                        .map(|left_element| {
+                                            // Create a new scope for the result selector
+                                            let mut result_env = env.clone();
+                                            
+                                            // Apply the result selector to create the joined record
+                                            match &*join.result_selector {
+                                                Expr::Lambda(lambda) => {
+                                                    if lambda.parameters.len() != 2 {
+                                                        return Value::Null;
+                                                    }
+                                                    
+                                                    // Bind the left and right elements to the parameter names
+                                                    let left_param = &lambda.parameters[0];
+                                                    let right_param = &lambda.parameters[1];
+                                                    result_env.set_variable(left_param.clone(), left_element.clone());
+                                                    result_env.set_variable(right_param.clone(), right_element.clone());
+                                                    
+                                                    // Create a temporary interpreter with the local environment
+                                                    let mut result_interpreter = Interpreter { env: result_env };
+                                                    
+                                                    // Evaluate the result selector
+                                                    result_interpreter.evaluate(&lambda.body).unwrap_or(Value::Null)
+                                                },
+                                                _ => {
+                                                    // Default join behavior if no lambda is provided
+                                                    let mut record = HashMap::new();
+                                                    record.insert("key".to_string(), Value::String(key_string.clone()));
+                                                    record.insert("left".to_string(), left_element.clone());
+                                                    record.insert("right".to_string(), right_element.clone());
+                                                    Value::Record(record)
+                                                }
+                                            }
+                                        })
+                                        .collect()
+                                } else {
+                                    Vec::new()
+                                }
+                            },
+                            _ => Vec::new(),
+                        }
+                    })
+                    .collect();
                 
                 Ok(Value::Array(result))
             },
