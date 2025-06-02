@@ -176,4 +176,3 @@ let results = data_source("customer_reviews.csv")
 - Documentation
 - Tests
 - Benchmarks
-- Open Sourcing
