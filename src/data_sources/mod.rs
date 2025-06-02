@@ -1,9 +1,12 @@
 use std::collections::HashMap;
 use crate::ast::expressions::Value;
-
-pub struct DataSourceFactory;
+use std::error::Error;
+use std::fmt;
 
 pub mod csv_source;
+pub mod columnar;
+
+pub use columnar::*;
 
 #[derive(Debug)]
 #[allow(dead_code)]
@@ -12,6 +15,7 @@ pub enum DataSourceError {
     ParseError(String),
     UnsupportedFormat(String),
     WriteError(String),
+    IoError(String),
 }
 
 pub trait DataSource {
@@ -21,30 +25,55 @@ pub trait DataSource {
 }
 
 impl DataSourceFactory {
-    pub fn create_data_source(path: &str) -> Result<Box<dyn DataSource>, DataSourceError> {
-        // Check if the file exists
-        if let Err(e) = std::fs::metadata(path) {
-            return Err(DataSourceError::FileNotFound(
-                format!("File not found: {}, error: {}", path, e)
-            ));
-        }
-
-        // Determine the file format based on extension
-        if let Some(extension) = path.split('.').last() {
-            match extension.to_lowercase().as_str() {
-                "csv" => {
-                    // Use the CSV data source for .csv files
-                    Ok(Box::new(csv_source::CsvDataSource))
-                },
-                // Add support for other formats here as needed
-                _ => Err(DataSourceError::UnsupportedFormat(
-                    format!("Unsupported file format: .{}", extension)
-                )),
-            }
+    pub fn create_data_source(source: &str) -> Result<Box<dyn DataSource>, DataSourceError> {
+        if source.ends_with(".csv") {
+            Ok(Box::new(CsvDataSource::new(source.to_string())))
         } else {
-            Err(DataSourceError::UnsupportedFormat(
-                "File has no extension".to_string()
-            ))
+            Err(DataSourceError::UnsupportedFormat(source.to_string()))
         }
     }
 }
+
+/// Factory for creating data sources
+pub struct DataSourceFactory;
+
+/// CSV data source implementation
+pub struct CsvDataSource {
+    path: String,
+}
+
+impl CsvDataSource {
+    pub fn new(path: String) -> Self {
+        Self { path }
+    }
+}
+
+impl DataSource for CsvDataSource {
+    fn load(&self, _path: &str) -> Result<Vec<Value>, DataSourceError> {
+        // Simplified CSV loading - in practice you'd use the csv crate
+        Ok(vec![])
+    }
+
+    fn get_schema(&self, path: &str) -> Result<HashMap<String, String>, DataSourceError> {
+        // Implementation needed
+        Err(DataSourceError::UnsupportedFormat("Schema retrieval not implemented for CSV".to_string()))
+    }
+
+    fn write(&self, path: &str, records: &[Value]) -> Result<(), DataSourceError> {
+        // Implementation needed
+        Err(DataSourceError::UnsupportedFormat("Write operation not implemented for CSV".to_string()))
+    }
+}
+
+impl fmt::Display for DataSourceError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            DataSourceError::UnsupportedFormat(format) => write!(f, "Unsupported format: {}", format),
+            DataSourceError::IoError(msg) => write!(f, "IO error: {}", msg),
+            DataSourceError::ParseError(msg) => write!(f, "Parse error: {}", msg),
+            _ => write!(f, "Unknown error"),
+        }
+    }
+}
+
+impl Error for DataSourceError {}

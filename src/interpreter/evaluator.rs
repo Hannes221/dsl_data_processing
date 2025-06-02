@@ -7,6 +7,7 @@ use super::runtime_error::RuntimeError;
 use crate::ast::expressions::Function; 
 use crate::data_sources::DataSourceFactory;
 use rayon::prelude::*;
+use std::sync::Arc;
 
 pub struct Interpreter {
     pub env: Environment,
@@ -102,95 +103,77 @@ impl Interpreter {
     }
     
     fn evaluate_filter(&mut self, filter: &FilterExpr) -> Result<Value, RuntimeError> {
-        // Evaluate the input expression
         let input_value = self.evaluate(&filter.input)?;
         
-        // Input should be an array
         if let Value::Array(elements) = input_value {
-            // Clone the environment for parallel processing
-            let env = self.env.clone();
+            // Use Arc to share environment read-only
+            let env = Arc::new(self.env.clone());
             
-            // Create a parallel iterator over the elements
-            let result: Vec<Value> = elements.into_par_iter()
-                .filter_map(|element| {
-                    // Create a new scope for the lambda parameter
-                    let mut local_env = env.clone();
-                    
-                    // Bind the current element to the parameter name
-                    match &*filter.predicate {
-                        Expr::Lambda(lambda) => {
-                            if lambda.parameters.len() != 1 {
-                                return None;
-                            }
-                            
-                            let param_name = &lambda.parameters[0];
-                            local_env.set_variable(param_name.clone(), element.clone());
-                            
-                            // Create a temporary interpreter with the local environment
-                            let mut local_interpreter = Interpreter { env: local_env };
-                            
-                            // Evaluate the predicate
-                            let predicate_result = local_interpreter.evaluate(&lambda.body).ok()?;
-                            
-                            // Return the element if the predicate is true
-                            match predicate_result {
-                                Value::Boolean(true) => Some(element),
-                                _ => None,
-                            }
-                        },
-                        _ => None,
-                    }
-                })
-                .collect();
-            
-            Ok(Value::Array(result))
+            // Pre-extract lambda information to avoid repeated pattern matching
+            if let Expr::Lambda(lambda) = filter.predicate.as_ref() {
+                if lambda.parameters.len() != 1 {
+                    return Err(RuntimeError::Other("Filter predicate must have exactly one parameter".to_string()));
+                }
+                
+                let param_name = Arc::new(lambda.parameters[0].clone());
+                let lambda_body = Arc::new(lambda.body.clone());
+                
+                let result: Vec<Value> = elements.into_par_iter()
+                    .filter_map(|element| {
+                        // Create minimal scope with shared environment
+                        let mut local_env = Environment::with_parent(env.clone());
+                        local_env.set_variable(param_name.as_ref().clone(), element.clone());
+                        
+                        let mut local_interpreter = Interpreter { env: local_env };
+                        
+                        match local_interpreter.evaluate(&lambda_body) {
+                            Ok(Value::Boolean(true)) => Some(element),
+                            _ => None,
+                        }
+                    })
+                    .collect();
+                
+                Ok(Value::Array(result))
+            } else {
+                Err(RuntimeError::ExpectedLambda)
+            }
         } else {
             Err(RuntimeError::ExpectedArray(format!("{:?}", input_value)))
         }
     }
     
     fn evaluate_map(&mut self, map: &MapExpr) -> Result<Value, RuntimeError> {
-        // Evaluate the input expression
         let input_value = self.evaluate(&map.input)?;
         
-        // Input should be an array
         if let Value::Array(elements) = input_value {
-            // Clone the environment for parallel processing
-            let env = self.env.clone();
+            let env = Arc::new(self.env.clone());
             
-            // Create a parallel iterator over the elements
-            let result: Vec<Value> = elements.into_par_iter()
-                .map(|element| {
-                    // Create a new scope for the lambda parameter
-                    let mut local_env = env.clone();
-                    
-                    // Bind the current element to the parameter name
-                    match &*map.transform {
-                        Expr::Lambda(lambda) => {
-                            if lambda.parameters.len() != 1 {
-                                return Value::Null;
-                            }
-                            
-                            let param_name = &lambda.parameters[0];
-                            local_env.set_variable(param_name.clone(), element.clone());
-                            
-                            // Create a temporary interpreter with the local environment
-                            let mut local_interpreter = Interpreter { env: local_env };
-                            
-                            // Evaluate the transform
-                            local_interpreter.evaluate(&lambda.body).unwrap_or(Value::Null)
-                        },
-                        _ => Value::Null,
-                    }
-                })
-                .collect();
-            
-            Ok(Value::Array(result))
+            if let Expr::Lambda(lambda) = map.transform.as_ref() {
+                if lambda.parameters.len() != 1 {
+                    return Err(RuntimeError::Other("Map transform must have exactly one parameter".to_string()));
+                }
+                
+                let param_name = Arc::new(lambda.parameters[0].clone());
+                let lambda_body = Arc::new(lambda.body.clone());
+                
+                let result: Vec<Value> = elements.into_par_iter()
+                    .map(|element| {
+                        let mut local_env = Environment::with_parent(env.clone());
+                        local_env.set_variable(param_name.as_ref().clone(), element);
+                        
+                        let mut local_interpreter = Interpreter { env: local_env };
+                        local_interpreter.evaluate(&lambda_body).unwrap_or(Value::Null)
+                    })
+                    .collect();
+                
+                Ok(Value::Array(result))
+            } else {
+                Err(RuntimeError::ExpectedLambda)
+            }
         } else {
             Err(RuntimeError::ExpectedArray(format!("{:?}", input_value)))
         }
     }
-
 
     fn evaluate_binary_op(&mut self, binary_op: &BinaryOpExpr) -> Result<Value, RuntimeError> {
         let left = self.evaluate(&binary_op.left)?;
